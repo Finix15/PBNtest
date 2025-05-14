@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Tạo tranh tô màu trắc nghiệm</title>
+    <link rel="stylesheet" href="styles/lib/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <link rel='stylesheet' href='styles/main.css' />
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <h2> Tạo tranh tô màu trắc nghiệm</h2>
+            <span>Dán từ bộ nhớ tạm (ctrl+v) để thay đổi hình ảnh (hoặc duyệt tìm tệp <input id="file" type="file"
+                    accept="image/x-png,image/gif,image/jpeg"></input>). Lưu ý rằng hình ảnh lớn sẽ rất chậm khi xử lý.</span>
+            <br />
+            <span>Hình ảnh mẫu:
+                <a id="lnkTrivial" href="#">đơn giản</a> -
+                <a id="lnkSmall" href="#">nhỏ</a> -
+                <a id="lnkMedium" href="#">trung bình</a>
+            </span>
+        </div>
+        <div class="row">
+            <div class="col s12">
+                <ul class="tabs">
+                    <li class="tab col s2">
+                        <a href="#input-pane">Đầu vào</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#options-pane">Tùy chọn</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#guide-pane">Hướng dẫn</a>
+                    </li>
+                </ul>
+            </div>
+            <div id="input-pane" class="col s12">
+                <canvas id="canvas"></canvas>
+                <img id="imgTrivial" crossorigin="anonymous" src="https://i.imgur.com/o5CqO57.png"
+                    style="display:none" />
+                <img id="imgSmall" crossorigin="anonymous" src="https://i.imgur.com/YgYLDGP.png" style="display:none" />
+
+                <img id="imgMedium" crossorigin="anonymous" src="https://i.imgur.com/nLeNgYbr.jpg"
+                    style="display:none" />
+            </div>
+            <!-- I suck at materializecss design, in case you haven't noticed yet -->
+            <div id="options-pane" class="col s12">
+                <ul class="collection">
+                    <li class="collection-item">
+                        <div class="row">
+                            <div class="col s3" style="margin-top: 34px;">
+                                <label>
+                                    <input id="chkResizeImage" type="checkbox" checked="checked" />
+                                    <span>Thay đổi kích thước hình ảnh lớn hơn
+                                        <i class="material-icons tooltipped"
+                                            data-tooltip="Nếu được chọn và hình ảnh đầu vào lớn hơn kích thước đã cho, nó sẽ được thay đổi kích thước để phù hợp nhưng vẫn giữ nguyên tỷ lệ.">info</i>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="col s2">
+                                <label for="txtResizeWidth">chiều rộng</label>
+                                <input id="txtResizeWidth" type="number" value="1024" min="1" class="validate">
+                            </div>
+                            <div class="col s2">
+                                <label for="txtResizeHeight">chiều cao</label>
+                                <input id="txtResizeHeight" type="number" value="1024" min="1" class="validate">
+                            </div>
+                        </div>
+                    </li>
+                    <li class="collection-item">
+                        <div class="row">
+                            <div class="input-field col s2">
+                                <input id="txtNrOfClusters" type="number" value="16" min="1" class="validate">
+                                <label for="txtNrOfClusters">Số lượng màu
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Số lượng màu để lượng hóa hình ảnh">info</i>
+                                </label>
+                            </div>
+
+                            <div class="input-field col s2">
+                                <input id="txtClusterPrecision" type="number" value="1" min="1" step="0.05"
+                                    class="validate">
+                                <label for="txtClusterPrecision">Độ chính xác của nhóm
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Ngưỡng delta khoảng cách của phân cụm k-means cần đạt được trước khi dừng. Có giá trị lớn hơn sẽ tăng tốc độ phân cụm nhưng có thể dẫn đến các cụm không tối ưu.">info</i>
+                                </label>
+                            </div>
+                            
+                            <div class="input-field col s2">
+                                <input id="txtRandomSeed" type="number" value="0" min="0" step="1"
+                                    class="validate">
+                                <label for="txtRandomSeed">Hạt giống ngẫu nhiên
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Hạt giống để sử dụng cho trình tạo số ngẫu nhiên để chọn các điểm trung tâm ban đầu cho phân cụm k-means. Sử dụng cùng một hạt giống đảm bảo bạn sẽ nhận được kết quả giống nhau mỗi lần.">info</i>
+                                </label>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="collection-item">
+                        <div class="row">
+                            <div class="col s12">
+                                <h5>Tùy chọn nhãn màu</h5>
+                            </div>
+                            <div class="col s12">
+                                <div class="row" style="margin-bottom: 5px">
+                                    <div class="col s12">
+                                        <p>Chọn chữ cái cho từng màu (A, B, C hoặc D)</p>
+                                    </div>
+                                </div>
+                                <div class="row" style="max-height: 300px; overflow-y: auto; border: 1px solid #eee; padding: 10px;">
+                                    <!-- Màu 0-3 thành 1-4 -->
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color0Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 1</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color1Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 2</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color2Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 3</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color3Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 4</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Màu 4-7 thành 5-8 -->
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color4Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 5</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color5Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 6</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color6Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 7</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color7Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 8</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Màu 8-11 thành 9-12 -->
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color8Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 9</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color9Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 10</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color10Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 11</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color11Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 12</label>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Màu 12-15 thành 13-16 -->
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color12Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 13</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color13Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 14</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color14Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 15</label>
+                                        </div>
+                                    </div>
+                                    <div class="col s3">
+                                        <div class="input-field">
+                                            <select id="color15Letter" class="color-letter-select">
+                                                <option value="">Không</option>
+                                                <option value="A">A</option>
+                                                <option value="B">B</option>
+                                                <option value="C">C</option>
+                                                <option value="D">D</option>
+                                            </select>
+                                            <label>Màu 16</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="collection-item">
+                        <div class="row">
+
+                            <div class="col s3">
+                                <label>Không gian màu phân cụm
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Không gian màu để áp dụng phân cụm">info</i>
+                                </label>
+                            </div>
+                            <div class="col s2">
+                                <label>
+                                    <input id="optColorSpaceRGB" name="colorspace" type="radio" checked />
+                                    <span>RGB</span>
+                                </label>
+                            </div>
+                            <div class="col s2">
+                                <label>
+                                    <input id="optColorSpaceHSL" name="colorspace" type="radio" />
+                                    <span>HSL</span>
+                                </label>
+                            </div>
+                            <div class="col s2">
+                                <label>
+                                    <input id="optColorSpaceLAB" name="colorspace" type="radio" />
+                                    <span>Lab</span>
+                                </label>
+                            </div>
+
+                            <div class="col s12">
+                                <label for="txtKMeansColorRestrictions">Hạn chế màu phân cụm
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Chỉ định màu nào nên được sử dụng, mỗi dòng một màu theo định dạng 'r,g,b'. Sử dụng // làm bình luận. Nếu không có màu nào được chỉ định, không có hạn chế nào được áp dụng. Hữu ích nếu bạn chỉ có một vài màu sơn.">info</i>
+                                </label>
+                                <textarea id="txtKMeansColorRestrictions" class="materialize-textarea validate">
+//0,0,0
+//255,255,255
+</textarea>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="collection-item">
+                        <div class="row">
+                            <div class="input-field col s4">
+                                <input id="txtNarrowPixelStripCleanupRuns" type="number" value="3" min="0"
+                                    class="validate">
+                                <label for="txtNarrowPixelStripCleanupRuns">Số lần chạy để làm sạch pixel hẹp
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Làm sạch pixel hẹp loại bỏ các dải hàng pixel đơn, điều này sẽ làm cho một số mặt có các đoạn viền quá hẹp để hữu ích. Việc loại bỏ mặt nhỏ có thể tạo ra các dải pixel hẹp mới, vì vậy điều này được lặp lại trong một vài lần chạy lặp lại.">info</i>
+                                </label>
+                            </div>
+                            <div class="input-field col s4">
+                                <input id="txtRemoveFacetsSmallerThan" type="number" value="20" min="1"
+                                    class="validate">
+                                <label for="txtRemoveFacetsSmallerThan">Loại bỏ mặt nhỏ hơn (pixel)
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Loại bỏ bất kỳ mặt nào nhỏ hơn số lượng pixel đã cho. Giảm giá trị sẽ tạo ra kết quả chi tiết hơn nhưng có thể khó vẽ hơn do kích thước của chúng.">info</i>
+                                </label>
+                            </div>
+                            <div class="input-field col s4">
+                                <input id="txtMaximumNumberOfFacets" type="number" value="100000" min="1"
+                                    class="validate">
+                                <label for="txtMaximumNumberOfFacets">Số lượng mặt tối đa
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Nếu có nhiều mặt hơn số lượng tối đa đã cho, tiếp tục loại bỏ các mặt nhỏ nhất cho đến khi đạt đến giới hạn">info</i>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <div class="row">
+                                    <div class="col s4">
+                                        <label>Thứ tự loại bỏ mặt nhỏ
+                                            <i class="material-icons tooltipped"
+                                                data-tooltip="Lớn nhất đến nhỏ nhất sẽ ngăn các ranh giới làm biến dạng các hình dạng vì các mặt nhỏ hơn hoạt động như các điểm neo biên giới nhưng có thể chậm hơn đáng kể">info</i>
+                                        </label>
+                                    </div>
+                                    <div class="col s4">
+                                        <label>
+                                            <input id="optFacetRemovalLargestToSmallest" name="smallfacetremovalorder"
+                                                type="radio" checked />
+                                            <span>Lớn nhất đến nhỏ nhất</span>
+                                        </label>
+                                    </div>
+                                    <div class="col s4">
+                                        <label>
+                                            <input id="optFacetRemovalSmallestToLargest" name="smallfacetremovalorder"
+                                                type="radio" />
+                                            <span>Nhỏ nhất đến lớn nhất</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </li>
+                    <li class="collection-item">
+                        <div class="row">
+                            <div class="input-field col s5">
+                                <input id="txtNrOfTimesToHalveBorderSegments" type="number" value="2" min="0"
+                                    class="validate">
+                                <label for="txtNrOfTimesToHalveBorderSegments">Số lần giảm một nửa độ phức tạp của đoạn viền
+                                    <i class="material-icons tooltipped"
+                                        data-tooltip="Giảm số lượng điểm trong một đoạn viền (sử dụng giảm sóng haar) sẽ làm mịn đường cong bậc hai hơn nhưng mất chi tiết. <br/>Một đoạn (viền chung với một mặt) sẽ luôn giữ điểm bắt đầu và kết thúc của nó.">info</i>
+                                </label>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+
+            </div>
+            <div id="guide-pane" class="col s12">
+                <div class="row">
+                    <div class="col s12">
+                        <h5>Hướng dẫn sử dụng chi tiết</h5>
+                        <div class="collection">
+                            <div class="collection-item">
+                                <h6>1. Chuẩn bị hình ảnh</h6>
+                                <p>- Tải lên hình ảnh của bạn bằng cách nhấn vào nút duyệt tìm tệp hoặc dán trực tiếp từ clipboard (Ctrl+V)</p>
+                                <p>- Bạn cũng có thể chọn một trong các hình ảnh mẫu: đơn giản, nhỏ, trung bình</p>
+                                <p>- Lưu ý: Hình ảnh lớn có thể mất nhiều thời gian để xử lý</p>
+                            </div>
+                            
+                            <div class="collection-item">
+                                <h6>2. Điều chỉnh các tùy chọn</h6>
+                                <p><b>Số lượng màu:</b> Quyết định số lượng màu sẽ được sử dụng trong tranh tô màu (mặc định: 16)</p>
+                                <p><b>Tùy chọn nhãn màu:</b> Cho phép bạn chọn chữ cái (A, B, C, D) cho từng màu từ 1-16</p>
+                                <ul>
+                                    <li>- Mỗi màu có thể được gán một chữ cái riêng biệt</li>
+                                    <li>- Ví dụ: Màu 1 có thể là 1A, Màu 2 có thể là 2B, v.v.</li>
+                                    <li>- Bạn có thể chọn "Không" nếu không muốn thêm chữ cái cho màu đó</li>
+                                    <li>- Chỉ hiển thị số lượng màu tương ứng với số màu bạn đã chọn</li>
+                                </ul>
+                                <p><b>Các tùy chọn nâng cao khác:</b> Bạn có thể điều chỉnh không gian màu, độ chính xác phân cụm, và các thông số khác để có kết quả tốt hơn</p>
+                            </div>
+                            
+                            <div class="collection-item">
+                                <h6>3. Xử lý hình ảnh</h6>
+                                <p>- Sau khi đã chuẩn bị hình ảnh và điều chỉnh tùy chọn, nhấn nút "Xử lý hình ảnh"</p>
+                                <p>- Quá trình xử lý có nhiều bước và có thể mất vài giây đến vài phút tùy thuộc vào độ phức tạp của hình ảnh</p>
+                                <p>- Bạn có thể theo dõi tiến trình xử lý ở thanh trạng thái phía dưới</p>
+                            </div>
+                            
+                            <div class="collection-item">
+                                <h6>4. Xem và tải xuống kết quả</h6>
+                                <p>- Sau khi xử lý hoàn tất, chuyển đến tab "Kết quả" để xem tranh tô màu theo số</p>
+                                <p>- Bạn có thể điều chỉnh hiển thị với các tùy chọn:</p>
+                                <ul>
+                                    <li>- Hiển thị nhãn: Hiển thị số/chữ cái trong mỗi vùng màu</li>
+                                    <li>- Tô màu mặt: Hiển thị màu cho mỗi vùng</li>
+                                    <li>- Hiển thị viền: Hiển thị đường viền giữa các vùng màu</li>
+                                </ul>
+                                <p>- Tải xuống kết quả bằng các nút:</p>
+                                <ul>
+                                    <li>- Tải SVG: Tải định dạng vector có thể chỉnh sửa</li>
+                                    <li>- Tải PNG: Tải định dạng hình ảnh</li>
+                                    <li>- Tải bảng màu: Tải bảng màu với các nhãn tương ứng để tham khảo khi tô màu</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="collection-item">
+                                <h6>5. Mẹo sử dụng</h6>
+                                <p>- Giảm số lượng màu sẽ tạo ra tranh tô màu đơn giản hơn, phù hợp cho trẻ em</p>
+                                <p>- Tăng kích thước font nhãn nếu các vùng màu quá nhỏ để đọc nhãn</p>
+                                <p>- Sử dụng chữ cái A, B, C, D cho các màu tương tự để dễ phân biệt</p>
+                                <p>- Bạn có thể thử nghiệm các cấu hình khác nhau và xử lý lại hình ảnh để có kết quả ưng ý</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col s12">
+                <a class="waves-effect waves-light btn" id="btnProcess">Xử lý hình ảnh</a>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col s2">
+                <div class="status kMeans">
+                    Phân cụm K-means
+                    <div class="progress">
+                        <div id="statusKMeans" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s2">
+                <div class="status facetBuilding">
+                    Tạo mặt
+                    <div class="progress">
+                        <div id="statusFacetBuilding" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s2">
+                <div class="status facetReduction">
+                    Loại bỏ mặt nhỏ
+                    <div class="progress">
+                        <div id="statusFacetReduction" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s2">
+                <div class="status facetBorderPath">
+                    Phát hiện viền
+                    <div class="progress">
+                        <div id="statusFacetBorderPath" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s2">
+                <div class="status facetBorderSegmentation">
+                    Phân đoạn viền
+                    <div class="progress">
+                        <div id="statusFacetBorderSegmentation" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col s2">
+                <div class="status facetLabelPlacement">
+                    Đặt nhãn
+                    <div class="progress">
+                        <div id="statusFacetLabelPlacement" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col s2">
+                <div class="status SVGGenerate">
+                    Tạo SVG
+                    <div class="progress">
+                        <div id="statusSVGGenerate" class="determinate" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col s12">
+                <ul id="tabsOutput" class="tabs">
+                    <li class="tab col s2">
+                        <a href="#kmeans-pane">Hình ảnh lượng hóa</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#reduction-pane">Giảm mặt</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#borderpath-pane">Vẽ viền</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#bordersegmentation-pane">Phân đoạn viền</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#labelplacement-pane">Đặt nhãn</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#output-pane">Kết quả</a>
+                    </li>
+                    <li class="tab col s2">
+                        <a href="#log-pane">Nhật ký</a>
+                    </li>
+                </ul>
+            </div>
+            <div id="kmeans-pane" class="col s12">
+                <canvas id="cKMeans"></canvas>
+            </div>
+            <div id="reduction-pane" class="col s12">
+                <canvas id="cReduction"></canvas>
+            </div>
+            <div id="borderpath-pane" class="col s12">
+                <canvas id="cBorderPath"></canvas>
+            </div>
+            <div id="bordersegmentation-pane" class="col s12">
+                <canvas id="cBorderSegmentation"></canvas>
+            </div>
+            <div id="labelplacement-pane" class="col s12">
+                <canvas id="cLabelPlacement"></canvas>
+            </div>
+
+            <div id="output-pane" class="col s12">
+                <div class="row">
+                    <div class="col s2">
+                        <label>Tùy chọn hiển thị SVG</label>
+                    </div>
+                    <div class="col s2">
+                        <label>
+                            <input id="chkShowLabels" type="checkbox" checked="checked" />
+                            <span>Hiển thị nhãn</span>
+                        </label>
+                    </div>
+                    <div class="col s2">
+                        <label>
+                            <input id="chkFillFacets" type="checkbox" checked="checked" />
+                            <span>Tô màu mặt</span>
+                        </label>
+                    </div>
+                    <div class="col s2">
+
+                        <label>
+                            <input id="chkShowBorders" type="checkbox" checked="checked" />
+                            <span>Hiển thị viền</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s3">
+                        <div class="input-field">
+                            <input placeholder="Hệ số nhân kích thước SVG" id="txtSizeMultiplier" type="number" value="3"
+                                min="1" class="validate">
+                            <label for="txtSizeMultiplier">Hệ số nhân kích thước SVG
+                                <i class="material-icons tooltipped"
+                                    data-tooltip="Tăng kích thước SVG so với hình ảnh gốc, hữu ích khi các nhãn không vừa trong các phân đoạn nhỏ">info</i>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col s3">
+                        <div class="input-field">
+                            <input placeholder="Kích thước font nhãn" id="txtLabelFontSize" type="number" value="50" min="1"
+                                max="100">
+                            <label for="txtLabelFontSize">Kích thước font nhãn
+                                <i class="material-icons tooltipped"
+                                    data-tooltip="Kích thước font của các nhãn số màu trong mỗi mặt, tính bằng phần trăm so với vòng tròn lớn nhất được tìm thấy bên trong một mặt.">info</i>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col s3">
+                        <div class="input-field">
+                            <input placeholder="Màu font nhãn" id="txtLabelFontColor" type="text" value="#000">
+                            <label for="txtLabelFontColor">Màu font nhãn
+                                <i class="material-icons tooltipped"
+                                    data-tooltip="Màu font của các nhãn số màu trong mỗi mặt">info</i>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s12">
+                        <div id="palette">
+
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col s12">
+                        <div id="svgContainer">
+
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col s3">
+                        <a class="waves-effect waves-light btn" id="btnDownloadSVG">Tải SVG</a>
+                    </div>
+                    <div class="col s3">
+                        <a class="waves-effect waves-light btn" id="btnDownloadPNG">Tải PNG</a>
+                    </div>
+                    <div class="col s3">
+                        <a class="waves-effect waves-light btn" id="btnDownloadPalettePNG">Tải bảng màu</a>
+                    </div>
+                </div>
+            </div>
+
+            <div id="log-pane" class="col s12">
+                <div class="row">
+                    <div class="col s12">
+                        <div id="log"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/lib/saveSvgAsPng.js"></script>
+    <script src="scripts/lib/require.js"></script>
+    <script src="scripts/lib/jquery-1.11.0.min.js"></script>
+    <script src="scripts/lib/materialize.min.js"></script>
+    <script src='scripts/main.js'></script>
+    <script>
+        requirejs(['main'], function (MyApp) {
+
+        });
+    </script>
+</body>
+
+</html>
